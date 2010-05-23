@@ -23,12 +23,6 @@
 ###	       --mirror-chroot URL
 ###	       --mirror-chroot-security URL
 ###	       --username NAME
-sudo lh_config -b usb-hdd --binary-indices disabled -f minimal --cache enabled --cache-indices enabled --categories 'main non-free' -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'gdm openbox'
-cat > .xsession << XSESSION
-#!/bin/bash
-/usr/bin/openbox &
-exit
-XSESSION
-sudo mkdir -p config/chroot_local-includes/etc/skel
-sudo mv .xsession config/chroot_local-includes/etc/skel/
+sudo lh clean --binary
+sudo lh_config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled --categories 'main non-free' -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client' -k 686
 sudo lh build
