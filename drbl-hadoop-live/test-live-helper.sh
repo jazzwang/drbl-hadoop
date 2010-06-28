@@ -9,6 +9,12 @@
 ## [2] /opt/drbl/sbin/create-drbl-live (from drbl - http://drbl.sf.net)
 ## [3] man lh_config and lh_build
 
+## Check root privileges
+if [ `id -u` != 0 ]; then
+  echo "[ERROR] This script must run as root or sudo !!"
+  exit
+fi
+
 ## Check current distribution is debian-like or not
 if [ ! -f /etc/debian_version ]; then
   echo "[ERROR] This script must run on Debian or Ubuntu !!"
@@ -39,15 +45,14 @@ fi
 
 lh clean --binary
 # [Note] option '--categories' is only avaible at live-helper 1.0.3-2
-lh config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled --categories 'main non-free' -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client' -k 686
+lh config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools wireless-tools ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client' -k 686
 
-# add non-free apt repository for chroot stage
-echo << EOF > config/chroot_sources/non-free.chroot
-deb http://free.nchc.org.tw/debian lenny non-free
-EOF
+cp hook/* config/chroot_local-hooks/
 
 lh build
 
 if [ -f binary.iso ]; then
-  cp binary.iso `date +"hadoop-live-%y%m%d%H%M.iso"`
+  filename=`date +"hadoop-live-%y%m%d%H%M"`
+  cp binary.iso "$filename.iso"
+  cp binary.packages "$filename.packages"
 fi
