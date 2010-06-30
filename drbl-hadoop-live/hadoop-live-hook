@@ -1,0 +1,239 @@
+#!/bin/bash
+# Author: Steven Shiau <steven _at_ nchc org tw>
+# License: GPL
+# Program to create DRBL/Clonezilla server live. You'd better to have 2 or more NICs in the machine, and they are configured so the created Clonezilla server live has preset DRBL environment.
+
+#
+DRBL_SCRIPT_PATH="${DRBL_SCRIPT_PATH:-/opt/drbl/}"
+
+# load drbl setting
+. $DRBL_SCRIPT_PATH/sbin/drbl-conf-functions
+# load config files
+. /live-hook-dir/ocs-live-hook.conf
+# load functions
+. /live-hook-dir/ocs-live-hook-functions 
+
+# locale_to_keep_for_X is loaded from ocs-live-hook.conf.
+locale_to_keep="$locale_to_keep_for_X"
+
+#
+clean_udev_persistent_net_rules
+
+# create a dummy /etc/fstab in Live CD so that nis/yp won't complain
+touch /etc/fstab
+
+#
+download_grub_1_2_deb_for_later_use
+
+#
+install_debian_extra_modules
+
+# clean some locales
+set_localepurge
+localepurge
+
+# Generate the locales. We will use "nolocales" to avoid these to be wipped by live-initramfs.
+locales_gen
+
+# If kexec tools is installed, disable the service. We do not need that for Clonezilla
+disable_kexec
+
+# Disable the "tips and tricks" on the startup after login.
+disable_xfce_startup_tips_and_tricks
+
+# Exclude live mount point in /etc/init.d/umountfs to avoid error messages when rebooting or halting.
+exclude_umount_live_mnt_point_in_umountfs
+
+# append the module so that it will be loaded, then gparted can grow filesystem
+# Ref: http://gparted.sourceforge.net/features.php
+append_mod_in_etc_modules
+
+# set root passwd, I do not like root without passwd.
+set_root_passwd
+
+# Append the PATH in system.
+append_drbl_clonezilla_PATH_in_system
+
+# We might need more /lib/udev/*_id than that initramfs-tools copies. E.g. for Live CD, we need cdrom_id, which udev (>= version 146 won't copy).
+copy_all_dev_id_prog_from_udev_lib
+
+# Put the DRBL live script in rcS.d
+cp_drbl_live_startup_to_rc.d
+
+# If mlterm is found with xfce installed, set default x-terminal-emulator as mlterm. Since xterm is not as good as mlterm in Traditional Chinese font.
+if dpkg -L xfce4 &>/dev/null && dpkg -L mlterm &>/dev/null; then
+  echo "Set mlterm as default x-terminal-emulator."
+  update-alternatives --set x-terminal-emulator /usr/bin/mlterm
+  # change the fg/bg color
+  perl -pi -e "s/^.*fg_color=.*/fg_color=white/g" /etc/mlterm/main
+  perl -pi -e "s/^.*bg_color=.*/bg_color=black/g" /etc/mlterm/main
+fi
+
+# We have to remove thunar-volman to avoid the partition is automatically mounted after a partition table is created. It will make Clonezilla fail due to partition busy.
+if dpkg -L thunar-volman &>/dev/null; then
+  apt-get -y --purge remove thunar-volman
+fi
+
+# preset some network setting
+guess_uplink_port="$(LC_ALL=C route -n | awk '/^0.0.0.0/ {print $8}' | sort | head -n 1)"
+case "$alias_eth0_for_drbl_clients" in
+  yes)
+    ethernet_drbl="eth0:1"
+    ifconfig $ethernet_drbl $alias_eth0_IP_addr netmask 255.255.255.0
+    ;;
+esac
+
+# Clear those automatically installed.
+if [ -n "$(LC_ALL=C apt-get --help 2>/dev/null | grep -i autoremove)" ]; then
+  apt-get -y autoremove
+fi
+
+# We need loopback device, just in case.
+cat <<-NET_END > /etc/network/interfaces
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+NET_END
+# Assign a default DNS
+# //NOTE// This won't work since live helper will remove /etc/resolv.conf.
+# Therefore here we comment this. To leave this in to make a note only.
+#assing_default_dns_server
+
+# Run drbl setup, we use DRBL SSI mode and clonezilla box mode
+if [ "$use_unfs" = "yes" ]; then
+  # Since unfs3 does not allow client to lock file, according to Pascal Schmidt <pascal.schmidt _at_ ewetel net>, we have to put "nolock" in client's /etc/fstab
+  perl -pi -e "s/^nfs_client_extra_opt=.*/nfs_client_extra_opt=nolock/g" $DRBL_SCRIPT_PATH/conf/drbl.conf
+fi
+
+# Change the VOL_LIMIT_DEFAULT as 2000 since we have no idea if user will mount FAT as $ocsroot or not.
+
+perl -pi -e 's/^VOL_LIMIT_DEFAULT=.*/VOL_LIMIT_DEFAULT="2000"  # Modified when creating DRBL live/g' $DRBL_SCRIPT_PATH/conf/drbl-ocs.conf
+
+# Get the installed kernel so that we can use drblsrv-offline directly.
+kernel_ver="$(unalias ls 2>/dev/null; ls /boot/vmlinuz-* | sort | tail -n 1)"
+kernel_ver="$(basename $kernel_ver | sed -e "s/vmlinuz-//g")"
+yes "" | drblsrv-offline -c -l en_US -s "$kernel_ver"
+
+# NOTE! All the setting about clients must be done before drblpush.
+# Run drblpush, now we use 1 for drbl client. The cient number is assigned in ocs-live-hook.conf and is applied to drbl-live.sh (it is run to start drbl service after the live cd is booted).
+yes "" | drblpush -l en_US -i -r 1 -z 1 -p 1 --not-add-start-drbl-srvi
+
+# post process
+# The /tftpboot/node_root/bin/hostname was renamed as hostname.orig by lh_chroot_hostname. Although later lh_chroot will deconfigure it, but we already copy them to /tftpboot/node_root/bin by drblpush. We have to move it back so that later drbl client can use the real hostname.
+mv -f $drbl_common_root/bin/hostname.orig $drbl_common_root/bin/hostname
+
+# stop all the services so that make-live can pack it.
+drbl-all-service stop
+
+# remove all the service in rc, we do not want all the services to automatically start at boot
+drbl-all-service del
+
+# we still have to add some modules in clients. We still have to do this although server's /etc/modules already has them, but drblpush will clean all to avoid some problem.
+for ih in $drblroot/*; do
+  for imod in $mod_loaded_at_startup; do
+    echo "$imod" >> $ih/etc/modules
+  done
+done
+
+# we clean the template node and tarballs: (1) save the space (2) if user uses different subnet for NIC, the template directory (Ex: /tftpboot/nodes/192.168.100.1) and tarball are useless. Since we will re-run drblpush in drbl-live.sh after drbl live boots. They will be created again.
+[ -d "$drblroot" -a -n "$drblroot" ] && rm -rf $drblroot/*
+[ -d "$drbl_common_root" -a -n "$drbl_common_root" ] && rm -rf $drbl_common_root/drbl_ssi/*.tgz
+
+# //NOTE// This is almost useless since squashfs will compress the file system, and the duplicated won't take too much space actully. Besides, without /tftpboot/node_root/{lib, usr}, DRBL will need more RAM (need by tmpfs) after running drblpush -i.
+# Remove /tftpboot/node_root/{lib, usr}, since when drblpush is run, they will be rebuild. Thanks to Orgad Shaneh for the inspiration. Ref: https://sourceforge.net/forum/forum.php?thread_id=3336278&forum_id=675794
+#[ -d "$drbl_common_root/lib" -a -n "$drbl_common_root" ] && rm -rf $drbl_common_root/lib
+#[ -d "$drbl_common_root/usr" -a -n "$drbl_common_root" ] && rm -rf $drbl_common_root/usr
+
+# Note! there is an issue about squashfs 3.1 + kernel nfs, we can use user space nfs instead:
+# http://lists.alioth.debian.org/pipermail/debian-live-devel/2006-September/000470.html 
+# This also has a benefit, the mounted /home/partimage is ready to be seen by client.
+# Before --purge nfs-kernel-server, we have to backup /etc/exports
+if [ "$use_unfs" = "yes" ]; then
+  cp -f /etc/exports /etc/exports.unfs3
+  apt-get --yes --purge remove nfs-kernel-server
+  apt-get --yes install unfs3
+  mv -f /etc/exports.unfs3 /etc/exports
+fi
+
+# do some dirty clean... no idea why "/etc/init.d/nfs-kernel-server stop" and "/"/etc/init.d/nfs-common stop" won't be able to release this:
+# nfsd on /proc/fs/nfsd type nfsd (rw)
+umount nfsd
+
+# get unifont.bgf for bterm, this is used in drbl live standard version.
+# This must be after drblsrv is run, since after that, we have clonezilla (so drbl-ocs.conf exists)
+(
+  # now with clonezilla installed, we can load variable $DEBIAN_ISO_ETC_PATH_DEF
+  . $DRBL_SCRIPT_PATH/conf/drbl-ocs.conf
+  uni_font_url="$DEBIAN_ISO_ETC_PATH_DEF/fonts/$uni_font_file"
+  echo "Download unifont.bgf from $uni_font_url and put it in $DRBL_SCRIPT_PATH/lib/..."
+  mkdir -p $DRBL_SCRIPT_PATH/lib/
+  cd $DRBL_SCRIPT_PATH/lib/
+  wget $wget_opt $uni_font_url
+)
+
+# For better security. This has to be after "drblsrv -i" and "drblpush -i" are run.
+echo "For better security, do not turn on ssh service..."
+remove_service_in_system ssh
+
+# Turn of boinc client service
+remove_service_in_system boinc-client
+
+# Remove unnecessary service
+remove_service_in_system mdadm-raid
+
+# Put start script
+mkdir -p /etc/drbl/
+cp -ar $DRBL_SCRIPT_PATH/setup/files/ocs/drbl-live.d /etc/drbl/
+
+# put some desktop icons in the account $autologin_account.
+mkdir -p /home/$autologin_account/Desktop
+chown -R $autologin_account.$autologin_account /home/$autologin_account/Desktop
+cp -a $DRBL_SCRIPT_PATH/setup/files/misc/desktop-icons/drbl-live/*.desktop /home/$autologin_account/Desktop
+chown $autologin_account.$autologin_account /home/$autologin_account/Desktop/*.desktop
+
+# Now we use S97start-drbl-live to do more, instead of just kbd config.
+# Put a service to config keyboard
+# cat <<-KBD_END > /etc/init.d/kbd-conf
+# #!/bin/bash
+# dpkg-reconfigure console-data
+# KBD_END
+# chmod 755 /etc/init.d/kbd-conf
+# update-rc.d kbd-conf start 97 S .
+
+# Put a service to config X
+# Since X 7.3 or later from Debian lenny, "dpkg-reconfigure xserver-xorg" only configure keyboard, no more VGA driver and resolution. We use grandr to let user to change the resolution. The problem will be if it fails to enter vesa mode, grander won't be able to run. 
+# Ref: http://forums.debian.net/viewtopic.php?t=26577
+#cp -a $drbl_setup_path/files/ocs/live-hook/Forcevideo-drbl-live /etc/init.d/
+#update-rc.d Forcevideo-drbl-live start 98 S .
+
+# Put a link for vol_id so that GParted can use it to read linux-swap labels
+if [ -e /lib/udev/vol_id ]; then
+  (cd /sbin; ln -fs /lib/udev/vol_id vol_id)
+fi
+
+# we need real /sbin/start-stop-daemon
+remove_cdebootstrap-helper-diverts
+
+# turn off alias IP address
+[ "$alias_eth0_for_drbl_clients" = "yes" ] && ifconfig eth0:1 down
+
+# install sun-java6-jdk
+cat << EOF | /usr/bin/debconf-set-selections
+sun-java6-bin   shared/accepted-sun-dlj-v1-1    select true
+sun-java6-jdk   shared/accepted-sun-dlj-v1-1    select true
+sun-java6-jre   shared/accepted-sun-dlj-v1-1    select true
+EOF
+apt-get -y install sun-java6-jdk
+
+# ///Note/// This should be the last one after any apt-get.
+# clean unnecessary backup file to save space
+clean_unnecessary_backup_file_in_boot
+
+### THE END ###
+# DO NOT PUT ANY SCRIPT AFTHER THIS!!!
+# kill this program before creating squashfs filesystem.
+rm -rf /live-hook-dir

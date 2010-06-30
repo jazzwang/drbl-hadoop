@@ -4,4 +4,6 @@ all: clean
 clean:
 	sudo lh clean --purge
 	sudo rm -rf config
-	sudo rm build.log error.log
+
+drbl-hadoop: clean
+	sudo ./create-hadoop-live-by-pkg -m http://free.nchc.org.tw/debian -s http://free.nchc.org.tw/debian-security -e unstable > build.log 2> error.log
