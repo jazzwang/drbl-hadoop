@@ -4,3 +4,4 @@ all: clean
 clean:
 	sudo lh clean --purge
 	sudo rm -rf config
+	sudo rm build.log error.log

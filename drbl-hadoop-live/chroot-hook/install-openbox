@@ -1,0 +1,3 @@
+#!/bin/bash
+
+apt-get -y install net-tools wireless-tools ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client
