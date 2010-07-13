@@ -229,6 +229,9 @@ sun-java6-jre   shared/accepted-sun-dlj-v1-1    select true
 EOF
 apt-get -y install sun-java6-jdk
 
+# install cloudera hadoop package (CHD2)
+apt-get -y install hadoop-0.20-conf-pseudo
+
 # ///Note/// This should be the last one after any apt-get.
 # clean unnecessary backup file to save space
 clean_unnecessary_backup_file_in_boot

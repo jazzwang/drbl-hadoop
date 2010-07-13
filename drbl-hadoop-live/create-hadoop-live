@@ -663,6 +663,17 @@ AddDRBLRepository
   # prepare drbl key
   LC_ALL=C wget -O config/chroot_sources/drbl.chroot.gpg $DRBL_GPG_KEY_URL
 
+
+  DISTRO=$(lsb_release -c)
+
+  # prepare cloudera hadoop source list
+  cat << AddHadoopRepository > config/chroot_source/hadoop.chroot
+  deb http://archive.cloudera.com/debian $DISTRO-cdh2 contrib
+AddHadoopRepository
+
+  # prepare cloudera key
+  LC_ALL=C wget -O config/chroot_sources/hadoop.chroot.gpg http://archive.cloudera.com/debian/archive.key
+
   $pref lh build
   )
   mv -f debian-live/binary.iso $stage1_target_iso
