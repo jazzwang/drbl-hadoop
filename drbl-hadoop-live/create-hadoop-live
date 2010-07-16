@@ -664,10 +664,10 @@ AddDRBLRepository
   LC_ALL=C wget -O config/chroot_sources/drbl.chroot.gpg $DRBL_GPG_KEY_URL
 
 
-  DISTRO=$(lsb_release -c)
+  DISTRO=$(lsb_release -c | awk '{ print $2 }')
 
   # prepare cloudera hadoop source list
-  cat << AddHadoopRepository > config/chroot_source/hadoop.chroot
+  cat << AddHadoopRepository > config/chroot_sources/hadoop.chroot
   deb http://archive.cloudera.com/debian $DISTRO-cdh2 contrib
 AddHadoopRepository
 
