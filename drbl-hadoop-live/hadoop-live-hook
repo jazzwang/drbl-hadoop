@@ -230,7 +230,7 @@ EOF
 apt-get -y install sun-java6-jdk
 
 # install cloudera hadoop package (CHD2)
-apt-get -y install hadoop-0.20-conf-pseudo
+apt-get -y install hadoop-0.20 hadoop-0.20-pipes hadoop-0.20-conf-pseudo
 
 # ///Note/// This should be the last one after any apt-get.
 # clean unnecessary backup file to save space

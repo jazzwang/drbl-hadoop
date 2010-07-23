@@ -48,7 +48,6 @@ lh clean --binary
 lh config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools wireless-tools ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client' -k 686
 
 cp chroot-hook/* config/chroot_local-hooks/
-cp binary-hook/* config/binary_local-hooks/
 
 lh build
 
