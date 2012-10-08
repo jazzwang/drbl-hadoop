@@ -2,6 +2,7 @@
 
 ## Author: Jazz Yao-Tsung Wang <jazzwang.tw@gmail.com>
 ## 
+## v0.2 - 2012-10-09 - update for live-build
 ## v0.1 - 2010-05-23 - initial version
 ##
 ## Reference:
@@ -22,12 +23,12 @@ if [ ! -f /etc/debian_version ]; then
 fi
 
 ## If /usr/bin/lh is not found, install live-helper package first!!
-if [ ! -x /usr/bin/lh ]; then
-  echo "[WARN] live-helper not found!! I will install it first for you!!"
-  apt-get install -y live-helper
+if [ ! -x /usr/bin/lb ]; then
+  echo "[WARN] live-build not found!! I will install it first for you!!"
+  apt-get install -y live-build
 fi
 
-## [MEMO] following parameter is for live-helper ...........
+## [MEMO] following parameter is for live-build ...........
 ###	       -b|--binary-images	iso|net|tar|usb-hdd
 ###	       --binary-filesystem	fat16|fat32|ext2
 ###	       --binary-indices		enabled|disabled
@@ -43,13 +44,13 @@ fi
 ###	       --mirror-chroot-security URL
 ###	       --username		NAME
 
-lh clean --binary
+lb clean --binary
 # [Note] option '--categories' is only avaible at live-helper 1.0.3-2
-lh config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d lenny --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools wireless-tools ssh sudo xserver-xorg-video-vesa xinit xfonts-base x11-xserver-utils xterm openbox iceweasel dhcp3-client' -k 686
+lb config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d squeeze --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools wireless-tools ssh sudo dhcp3-client' -k 686
 
 cp chroot-hook/* config/chroot_local-hooks/
 
-lh build
+lb build
 
 if [ -f binary.iso ]; then
   filename=`date +"hadoop-live-%y%m%d%H%M"`
