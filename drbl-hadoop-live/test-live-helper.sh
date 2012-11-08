@@ -46,9 +46,7 @@ fi
 
 lb clean --binary
 # [Note] option '--categories' is only avaible at live-helper 1.0.3-2
-lb config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d squeeze --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools wireless-tools ssh sudo dhcp3-client' -k 686
-
-cp chroot-hook/* config/chroot_local-hooks/
+lb config -b iso --binary-indices disabled -f minimal --cache enabled --cache-indices enabled -d squeeze --hostname hadoop -m http://free.nchc.org.tw/debian --mirror-chroot http://free.nchc.org.tw/debian --mirror-chroot-security http://free.nchc.org.tw/debian-security --mirror-binary http://free.nchc.org.tw/debian --mirror-binary-security http://free.nchc.org.tw/debian-security --username hadoop --packages 'net-tools ssh sudo dhcp3-client' -k 686 
 
 lb build
 
