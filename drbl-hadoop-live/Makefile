@@ -7,3 +7,5 @@ test: clean
 clean:
 	sudo lb clean --purge
 	sudo rm -rf config auto
+dist-clean: clean
+	sudo rm -f build.log error.log
